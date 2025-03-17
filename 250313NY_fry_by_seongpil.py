@@ -169,4 +169,4 @@ for col in object_columns:
     except:
         data[col] = pd.factorize(data[col])[0]  # 예외 발생 시 기본 인코딩 적용
 
-        data.dtypes
+        data.dtypessdfsdfsfsf
