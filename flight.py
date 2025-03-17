@@ -1,6 +1,3 @@
-
-# 3-airplane
-
 import pandas as pd
 import numpy as np
 
