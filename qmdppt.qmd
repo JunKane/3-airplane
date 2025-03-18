@@ -1,0 +1,33 @@
+---
+title: "nycflights13 3조 보고서(비행)"
+author: '3조'
+format:
+    revealjs:
+        logo: pa.jpg
+        title-slide-attributes:
+            data-background-image: background.jpg
+            data-background-size: cover
+            data-background-opacity: "0.6"
+
+        theme: dark
+        reference-location: document
+        footer: 'LS 빅데이터 스쿨 3조 ( 김보경 / 박한슬 / 송설필 / 양현준 )'
+---
+
+# 뉴욕 비행장 데이터를 알아보자!
+## 기본 정보
+
+* 다음과 같이 비행장 데이터 'flights' / 'planes'를 불러온다.
+
+```{python}
+import numpy as np
+import pandas as pd
+
+from nycflights13 import flights, planes
+
+print(flights.info())
+print(planes.info())
+
+```
+
+
