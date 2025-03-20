@@ -1,0 +1,906 @@
+---
+title: "신뢰도가 높은 항공사 찾기"
+format:
+    revealjs:
+        logo: pa.jpg
+        title-slide-attributes:
+            data-background-image: background.jpg
+
+
+        reference-location: document
+        footer: 'LS 빅데이터 스쿨 3조 ( 김보경 / 박한슬 / 송성필 / 양현준 )'
+        css: staple_final.css
+      
+echo: true
+---
+
+
+# 목차
+<br>
+
+::: {.my-box .style5}
+*  월별 출발·도착 지연 분석
+*  날씨변수 출발·도착 지연 분석
+*  최적의 항공사 추천
+:::
+
+
+---
+
+## Part 1. 월별 출발·도착 지연 분석
+### 월별 출발·도착 지연 최빈값
+
+
+```{python}
+#| echo: true
+#| code-fold: true
+from nycflights13 import flights, weather
+import pandas as pd
+
+# flights에서 특정 컬럼 추출
+picked = flights[['arr_delay', 'dep_delay', 'time_hour']]
+
+# picked['time_hour']의 타입 변환 (object -> datetime64)
+picked['time_hour'] = pd.to_datetime(picked['time_hour'])
+
+# 월정보 추출
+picked['month'] = picked['time_hour'].dt.month
+
+# 도착 지연 여부[True, False]
+picked['arr_delay_flag'] = picked['arr_delay'] > 0
+# 출발 지연 여부[True, False]
+picked['dep_delay_flag'] = picked['dep_delay'] > 0
+
+# 월별 지연 횟수 집계 [도착지연, 출발지연 True값의 합]
+monthly_delays = picked.groupby('month').agg(
+    arrival_delays=('arr_delay_flag', 'sum'),
+    departure_delays=('dep_delay_flag', 'sum')
+).reset_index()
+print(monthly_delays)
+```
+
+
+
+## 월별 지연 횟수 시각화
+
+
+```{python}
+#| echo: true
+#| code-fold: true
+#| eval: true
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+# X 축 위치 조정[동시에 출발·도착 지연 표기 위해]
+x = np.array(monthly_delays['month'])  # 월 (1~12)나열
+width = 0.4  # 막대 너비
+
+# 그래프 그리기 (도착 지연은 왼쪽, 출발 지연은 오른쪽)
+plt.figure(figsize=(10, 5))
+plt.bar(x - width/2, monthly_delays['arrival_delays'],
+         width=width, label='Arrival Delays', color='blue', alpha=0.7)
+plt.bar(x + width/2, monthly_delays['departure_delays'],
+         width=width, label='Departure Delays', color='red', alpha=0.7)
+
+plt.ticklabel_format(style='plain', axis='y')
+plt.ylim(6000, 16000)
+plt.xlabel('Month')
+plt.ylabel('Number of Delays')
+plt.title('Total montly Flight Delays')
+plt.xticks(ticks=range(1, 13))  # 1~12월 표시
+plt.legend()
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.show()
+```
+
+
+::: {.my-box .style1}
+
+- 지연횟수가 가장 많은 달 : 12월
+- 지연횟수가 많은 구간 : 6~8월
+- **뉴욕공항의 지연은 12월과 여름철(6~8월)에 가장 빈번**
+
+:::
+
+
+
+
+
+
+
+---
+
+## 월별 항공편 지연과 기상 조건의 상관관계 
+
+### 월별 지연 횟수와 기상 요인 : [온도, 풍속, 습도] 의 상관관계 분석
+
+
+```{python}
+#| echo: true
+#| code-fold: true
+#| eval: true
+# flights, weather 두 데이터 프레임 merge 후 사용할 컬럼만 picked2 로 변환[온도, 풍속, 습도]
+#weather데이터 확인 
+weather.info()
+merged=pd.merge(flights, weather, how='inner')
+picked2=merged[['temp','wind_speed','humid','time_hour']]
+
+#picked2['time_hour']의 형식 변환 [object에서datetime64로 ]
+picked2['time_hour'] = pd.to_datetime(picked2['time_hour'])
+
+# 월정보 추출
+picked2['month'] = picked2['time_hour'].dt.month
+
+#월별 평균 기온, 풍속, 습도 측정
+weather_inf=picked2.groupby('month')[['temp','wind_speed','humid']].mean(numeric_only=True).reset_index()
+
+# 섭씨로 변환
+def celsius(fahrenheit):
+    return (fahrenheit - 32) * 5/9
+weather_inf['temp'] = weather_inf['temp'].apply(celsius)
+
+print(weather_inf)
+```
+
+---
+
+## 월별 기상요인 시각화
+```{python}
+#| echo: true
+#| code-fold: true
+#| eval: true
+
+#각 해당그래프 출력
+plt.figure(figsize=(13, 6))
+plt.plot(weather_inf['month'],weather_inf['temp'],
+         label='temp', color='black', alpha=0.7)
+plt.plot(weather_inf['month'],weather_inf['humid'],
+         label='humid', color='blue', alpha=0.7)
+plt.plot(weather_inf['month'],weather_inf['wind_speed'],
+         label='wind_speed', color='green', alpha=0.7)
+
+plt.xlabel('Month')
+plt.ylabel('Weather_Data')
+plt.title('Montly Weather Info')
+plt.xticks(ticks=range(1, 13))  # 1~12월 표시
+plt.legend()
+plt.grid(axis='both', linestyle='--', alpha=0.7)
+plt.show()
+
+```
+
+---
+
+## 두 그래프 비교 분석
+
+::: {style="margin-top: 40px;"}
+
+
+
+
+```{python}
+#| echo: False
+#| eval: true
+import matplotlib.pyplot as plt
+import numpy as np
+
+# 두 개의 그래프를 위아래로 배치
+fig, ax = plt.subplots(2, 1, figsize=(10,5))  # 2개의 행으로 그래프 배치
+
+# 첫 번째 그래프 (위쪽): 날씨 정보 그래프
+ax[0].plot(weather_inf['month'], weather_inf['temp'], label='temp', color='black', alpha=0.7)
+ax[0].plot(weather_inf['month'], weather_inf['humid'], label='humid', color='blue', alpha=0.7)
+ax[0].plot(weather_inf['month'], weather_inf['wind_speed'], label='wind_speed', color='green', alpha=0.7)
+
+ax[0].set_xlabel('Month')
+ax[0].set_ylabel('Weather Data')
+ax[0].set_title('Monthly Weather Info')
+ax[0].set_xticks(range(1, 13))  # 1~12월 표시
+ax[0].legend()
+ax[0].grid(axis='both', linestyle='--', alpha=0.7)
+
+# 두 번째 그래프 (아래쪽): 도착 및 출발 지연 그래프
+ax[1].bar(x - width / 2, monthly_delays['arrival_delays'], width=width, label='Arrival Delays', color='blue', alpha=0.7)
+ax[1].bar(x + width / 2, monthly_delays['departure_delays'], width=width, label='Departure Delays', color='red', alpha=0.7)
+
+ax[1].set_xlabel('Month')
+ax[1].set_ylabel('Number of Delays')
+ax[1].set_title('Monthly Flight Delays')
+ax[1].set_xticks(range(1, 13))  # 1~12월 표시
+ax[1].legend()
+ax[1].grid(axis='y', linestyle='--', alpha=0.7)
+
+plt.tight_layout()
+plt.show()
+```
+    풍속 : 상관관계 미미
+    습도 : 여름,겨울 습도 높음 → 지연과 높은 상관
+    온도 : 지연이 많은 6, 7, 8, 12월에 온도 편차 증가 → 상관관계 있음
+
+:::
+---
+
+
+
+## 피어슨 상관 계수란
+### 두 변수 간의 **선형 관계(linear relationship)**를 측정하는 지표
+
+<br>
+
+::: {.my-box .style4}
+
+-   값의 범위: -1 ≤ r ≤ 1
+    -   r = 1 → 완벽한 양의 상관관계 (한 변수가 증가하면 다른 변수도 증가)
+    -   r = -1 → 완벽한 음의 상관관계 (한 변수가 증가하면 다른 변수는 감소)
+    -   r = 0 → 상관관계 없음 (두 변수 간의 선형 관계가 없음)
+
+:::
+
+<br>
+
+::: {.my-box .style4}
+
+-  p-value란?
+
+    -   p-value는 귀무가설(두 변수는 무관하다는 가정)이 맞을 확률
+    -   p-value \< 0.05이면 두 변수 간의 관계가 통계적으로 유의미하다고 판단
+
+:::
+
+
+
+## **출발 지연 / 도착 지연 : 상관관계 분석**
+
+<br>
+
+::: {style="text-align: center;"}
+```{python}
+#| echo: False
+#| eval: true
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LinearRegression
+
+
+ff = flights.dropna()
+x = ff.dep_delay
+
+model = LinearRegression()
+x = ff["dep_delay"].values.reshape(-1, 1) 
+y = ff["arr_delay"]
+
+model.fit(x, y)
+y_pred = model.predict(x)
+
+plt.figure(figsize=(13, 3.5))
+plt.scatter(flights.dep_delay, flights.arr_delay)
+plt.plot(ff['dep_delay'], y_pred, 'red')
+plt.xlabel("Dep delay")
+plt.ylabel("Arr delay")
+
+plt.show()
+```
+
+:::
+
+<style>
+table, th, td {
+  padding: 2px;     /* 기본 패딩보다 작게 설정 */
+  line-height: 1.1; /* 줄 간격 조정 */
+}
+</style>
+
+
+| Pearson r | p-value |
+|:---------:|:-------:|
+|   0.915   |    0    |
+
+|  |
+|------------------------------------------------------------------------|
+| Pearson_r : 매우 강한 선형 관계 |
+| p-value 0 : 상관관계가 통계적으로 매우 유의미 |
+| 출발 지연이 증가 시 도착 지연도 비슷한 경향으로 증가 / 통계적으로 신뢰할 수 있음 |
+
+
+
+---
+
+## 날씨가 항공기 운항에 미치는 영향: 상관분석 결과_1
+
+<br>
+
+<style>
+table, th, td {
+  padding: 4px;     /* 기본 패딩보다 작게 설정 */
+  line-height: 1.1; /* 줄 간격 조정 */
+}
+</style>
+
+| Carrier | Weather_Variable | Pearson_r | p-value      |
+|---------|------------------|-----------|--------------|
+| WN      | temp             | 0.10758   | 2.34097e-93  |
+| WN      | precip           | 0.1279    | 1.80692e-131 |
+| VX      | temp             | 0.15104   | 7.81441e-79  |
+| FL      | temp             | 0.152104  | 2.26349e-50  |
+| FL      | precip           | 0.148333  | 5.77072e-48  |
+| AS      | wind_speed       | 0.170993  | 2.05222e-15  |
+| AS      | precip           | 0.148842  | 5.29987e-12  |
+| 9E      | precip           | 0.101047  | 3.65324e-118 |
+| YV      | precip           | 0.137115  | 2.8411e-08   |
+| OO      | temp             | 0.152553  | 0.15836      |
+
+|  |
+|------------------------------------------------------------------------|
+| Pearson_r 계수 : 0.1\~0.2의 약한 양의 상관관계 |
+| 온도, 강수량, 풍속에 모두 p-value 0.05 이하의 극소값 |
+| 온도, 강수량, 풍속은 항공기 지연에 통계적으로 유의미지만 상관게수가 낮아 영향이 크지 않음 |
+
+---
+
+## 날씨가 항공기 운항에 미치는 영향: 상관분석 결과_2
+
+<br>
+
+<div style="max-height: 450px; overflow-y: auto; border: 1px solid #ddd;">
+
+| Carrier | Weather Variable | Pearson r  | p-value       |
+|:--------|:----------------|-----------:|-------------:|
+| B6      | pressure        | -0.137121  | 0            |
+| DL      | pressure        | -0.104306  | 3.20053e-304 |
+| EV      | pressure        | -0.130428  | 0            |
+| EV      | visib           | -0.118259  | 0            |
+| MQ      | pressure        | -0.107926  | 1.70108e-174 |
+| US      | pressure        | -0.119111  | 1.58772e-166 |
+| WN      | pressure        | -0.169424  | 5.244e-206   |
+| WN      | visib           | -0.113709  | 3.78074e-104 |
+| VX      | pressure        | -0.108963  | 5.09803e-37  |
+| FL      | pressure        | -0.187189  | 3.35407e-68  |
+| FL      | visib           | -0.167302  | 1.04479e-60  |
+| AS      | pressure        | -0.194757  | 1.3052e-17   |
+| AS      | visib           | -0.145357  | 1.65025e-11  |
+| 9E      | pressure        | -0.135954  | 9.93468e-193 |
+| 9E      | visib           | -0.16016   | 4.8665e-296  |
+| YV      | pressure        | -0.156983  | 9.0678e-10   |
+| YV      | visib           | -0.138675  | 1.96879e-08  |
+| OO      | pressure        | -0.163573  | 0.149751     |
+| OO      | visib           | -0.166788  | 0.12258      |
+
+</div>
+
+||
+|--------|
+| Pearson_r 계수 : -0.2 ~ -0.1 약한 음의 상관관계 |
+| 기압과 가시거리 모두 p-value 0.05 이하의 극소값 |
+| 기압과 가시거리는 항공기 지연에 통계적으로 유의미지만 상관계수가 낮아 영향이 크지 않음 |
+
+---
+
+##  날씨가 항공기 운항에 미치는 영향: 상관분석 결과_3
+
+::: {.my-box .style6}
+ **분석 기상 요소**
+
+-   온도 (Temperature)
+-   강수량 (Precipitation)
+-   풍속 (Wind Speed)
+-   기압 (Pressure)
+-   가시거리 (Visibility)
+::: 
+
+<br>
+
+::: {.my-box .style6}
+ **분석 결과**
+
+ **1. 통계적으로 유의미한 관계 확인**
+
+-   기온, 강수량, 풍속, 기압, 가시거리가 항공기 운항과 일정한 상관관계를 보임.
+
+ **2. 그러나, 날씨는 항공기 지연의 주된 원인이 아님**
+
+-   상관 계수(Pearson r)가 **0.10 \~ 0.19** 범위로 영향력은 크지 않음.
+-   따라서, **날씨 요인은 영향을 주지만, 지연의 주요 원인으로 단정할 수 없음**.
+-   **항공기 지연에는 공항 운영, 기체 점검, 승객 탑승 지연 등 다양한 요인이 작용한다고 판단됨.**
+::: 
+
+---
+
+## Part2. 날씨변수 출발·도착 지연 분석
+
+### 날씨 변수 별 상관계수
+
+::::: columns
+::: {.column width="60%"}
+```{python}
+#| eval: false
+
+nn = pd.merge(flights, weather, on = 'time_hour')
+
+aa = nn.carrier.unique()
+bb = ['temp', 'wind_speed', 'pressure', 'visib', 'precip']
+
+vv = []
+
+for i in aa:
+    for j in bb:
+
+        temp = nn[(nn['carrier'] == i) & (~nn[f'{j}'].isnull()) & (~nn['dep_delay'].isnull())]
+        corr, p_value = pearsonr(temp['dep_delay'], temp[f'{j}'])
+        vv.append([i,j,corr,p_value])
+
+
+vv = pd.DataFrame(vv)
+vv1 = vv[vv[2] > 0.1]
+vv2 = vv[vv[2] < -0.1]
+
+################################################################ 
+
+# Pearson_r 절댓값 적용
+vv2_abs = vv2.copy()
+vv2_abs["Pearson_r"] = vv2_abs["Pearson_r"].abs()
+
+# 데이터프레임 생성
+df1 = pd.DataFrame(vv1)
+df3 = pd.DataFrame(vv2_abs)  # 절댓값 적용된 데이터 사용
+
+# 데이터 합치기
+df_combined = pd.concat([df1, df3])
+
+# 날씨 변수별 평균 상관계수 계산
+df_mean_weather = df_combined.groupby("Weather_Variable")["Pearson_r"].mean()
+
+# 레이더 차트 설정
+labels = df_mean_weather.index.tolist()
+values = df_mean_weather.values.tolist()
+
+# 최소한 4개 이상의 축이 필요하도록 설정
+if len(labels) < 4:
+    labels += ["dummy1", "dummy2"][:4 - len(labels)]  # 가짜 변수 추가
+    values += [0, 0][:4 - len(values)]
+
+# 각 축의 각도를 설정
+angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
+
+# 다각형을 닫기 위해 첫 번째 값 추가
+values += values[:1]
+angles += angles[:1]
+
+```
+:::
+
+::: {.column width="40%"}
+```{python}
+#| echo: False
+#| eval: true
+# 레이더 차트 그리기
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from nycflights13 import flights, planes, weather, airports, airlines
+from scipy.stats import pearsonr
+nn = pd.merge(flights, weather, on = 'time_hour')
+
+aa = nn.carrier.unique()
+bb = ['temp', 'wind_speed', 'pressure', 'visib', 'precip']
+
+vv = []
+
+for i in aa:
+    for j in bb:
+        #print(i,j, end = ' ')
+
+        #temp = nn[(nn['carrier'] == i) & ~nn[f'{j}'].isnull()]
+        temp = nn[(nn['carrier'] == i) & (~nn[f'{j}'].isnull()) & (~nn['dep_delay'].isnull())]
+        corr, p_value = pearsonr(temp['dep_delay'], temp[f'{j}'])
+        vv.append([i,j,corr,p_value])
+        
+        #print(f"Pearson Correlation: {corr}, p-value: {p_value}")
+        
+        #print(pearsonr(nn[(nn['carrier'] == i) &( ~nn['temp'].isnull())]['dep_delay'], 
+                  #nn[(nn['carrier'] == i) &( ~nn['temp'].isnull())]['temp']))
+
+
+
+vv = pd.DataFrame(vv)
+# vv
+vv1 = vv[vv[2] > 0.1]
+# vv1
+vv2 = vv[vv[2] < -0.1]
+# vv2
+
+vv1.columns = ["Carrier", "Weather_Variable", "Pearson_r", "p-value"]
+vv2.columns = ["Carrier", "Weather_Variable", "Pearson_r", "p-value"]
+vv2_abs = vv2.copy()
+vv2_abs = vv2["Pearson_r"].abs()
+
+
+# 데이터프레임 생성
+df1 = pd.DataFrame(vv1, columns=["Carrier", "Weather_Variable", "Pearson_r", "p-value"])
+df2 = pd.DataFrame(vv2, columns=["Carrier", "Weather_Variable", "Pearson_r", "p-value"])
+df3 = pd.DataFrame(vv2_abs, columns=["Carrier", "Weather_Variable", "Pearson_r", "p-value"])
+
+
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 데이터 컬럼명 설정
+vv1.columns = ["Carrier", "Weather_Variable", "Pearson_r", "p-value"]
+vv2.columns = ["Carrier", "Weather_Variable", "Pearson_r", "p-value"]
+
+# Pearson_r 절댓값 적용
+vv2_abs = vv2.copy()
+vv2_abs["Pearson_r"] = vv2_abs["Pearson_r"].abs()
+
+# 데이터프레임 생성
+df1 = pd.DataFrame(vv1)
+df3 = pd.DataFrame(vv2_abs)  # 절댓값 적용된 데이터 사용
+
+# 데이터 합치기
+df_combined = pd.concat([df1, df3])
+
+# 날씨 변수별 평균 상관계수 계산
+df_mean_weather = df_combined.groupby("Weather_Variable")["Pearson_r"].mean()
+
+# 레이더 차트 설정
+labels = df_mean_weather.index.tolist()
+values = df_mean_weather.values.tolist()
+
+# 최소한 4개 이상의 축이 필요하도록 설정
+if len(labels) < 4:
+    labels += ["dummy1", "dummy2"][:4 - len(labels)]  # 가짜 변수 추가
+    values += [0, 0][:4 - len(values)]
+
+# 각 축의 각도를 설정
+angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
+
+# 다각형을 닫기 위해 첫 번째 값 추가
+values += values[:1]
+angles += angles[:1]
+
+plt.rc('font', family='Nanum Gothic')
+fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
+ax.set_aspect('equal')  # 정사각형 비율 유지
+ax.fill(angles, values, color='red', alpha=0.3)  # 영역 채우기
+ax.plot(angles, values, color='red', linewidth=2)  # 외곽선 그리기
+ax.set_xticks(angles[:-1])  # 축 설정
+ax.set_xticklabels(labels)
+plt.title("날씨 변수별 평균 상관계수 레이더 차트")
+plt.show()
+```
+:::
+:::::
+
+
+---
+
+## 바람세기 별 출발·도착 지연 분석
+
+```{python}
+#| code-fold: true
+#| eval: true
+
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from nycflights13 import flights, weather
+
+## 1. 바람 세기, 출발 지연시간 비교
+tem = weather[['time_hour','wind_speed']]
+pt = flights[['time_hour','dep_delay']]
+
+# 두 데이터프레임을 time_hour을 기준으로 병합
+tempt = pd.merge(tem,pt,how = 'inner')
+
+#데이터프레임의 인덱스를 초기화하여 기본 인덱스로
+teempt = tempt.reset_index()
+
+#바람세기 구간 설정
+bins = np.arange(0, teempt['wind_speed'].max() + 5, 5)
+
+#구간화
+teempt['wind_bin'] = pd.cut(teempt['wind_speed'], bins=bins, right=False)
+
+#구간 지정 기준으로 데이터를 묶어 출발지연시간의 평균 
+grouped = teempt.groupby('wind_bin')['dep_delay'].mean()
+
+#데이터프레임으로 변환
+df_grouped = grouped.to_frame().reset_index()
+
+# 열 이름 지정
+df_grouped.columns = ['wind_bin', 'dep_delay']  
+
+# 구간을 문자열로 변환
+df_grouped['wind_bin_str'] = df_grouped['wind_bin'].astype(str)
+
+# 막대그래프 그리기 (Matplotlib)
+bars = plt.bar(df_grouped['wind_bin_str'], df_grouped['dep_delay'], color='thistle')
+bars[6].set_color('red')
+plt.xlabel("Wind Bin (String)")
+plt.ylabel("Dep Delay")
+plt.title("Wind Bin vs Dep Delay")
+plt.xticks(rotation=45) 
+plt.tight_layout()
+plt.show()
+```
+
+::: {.my-box .style2}
+도착 지연 역시 바람세기가 30~ 35m/s일때 가장 높게 나타나고<br> 35m/s를 넘으면 적게 나타나는 걸로 보아 결항되어 적게 나타나는 것으로 추정함.
+:::
+
+
+## 그럼 바람 세기가 도착 지연에는 영향을 미칠까?
+
+```{python}
+#| code-fold: true
+#| eval: true
+
+## 2. 바람 세기, 도착 지연시간 비교
+arr = weather[['time_hour','wind_speed']]
+ival = flights[['time_hour','arr_delay']]
+
+# 두 데이터프레임을 time_hour을 기준으로 병합
+arrival = pd.merge(arr,ival,how = 'inner')
+
+#데이터프레임의 인덱스를 초기화하여 기본 인덱스로
+arival = arrival.reset_index()
+
+
+#동일한 바람세기 기준으로 데이터를 묶어 도착지연시간의 평균 
+arv = arival.groupby('wind_speed')['arr_delay'].mean()
+arv
+#데이터프레임으로 변환
+aarv =arv.to_frame().reset_index()
+
+#바람세기 구간 설정
+bins = np.arange(0, aarv['wind_speed'].max() + 5, 5)
+
+#구간화
+aarv['wind_bin'] = pd.cut(aarv['wind_speed'], bins=bins, right=False)
+
+#구간 지정 기준으로 데이터를 묶어 도착착지연시간의 평균 
+arvgroup = aarv.groupby('wind_bin')['arr_delay'].mean()
+
+#데이터프레임으로 변환
+arvgroup = arvgroup.to_frame().reset_index()
+
+# 열 이름 지정
+arvgroup.columns = ['wind_bin', 'arr_delay'] 
+
+# 구간을 문자열로 변환
+arvgroup['wind_bin_str'] = arvgroup['wind_bin'].astype(str)
+
+# 막대그래프 그리기 (Matplotlib)
+bars = plt.bar(arvgroup['wind_bin_str'],arvgroup['arr_delay'], color='powderblue')
+bars[6].set_color('blue')
+plt.xlabel("Wind Bin (String)")
+plt.ylabel("Arr Delay")
+plt.title("Wind Bin vs Dep Delay")
+# 라벨이 겹치지 않도록 회전
+plt.xticks(rotation=45)  
+plt.tight_layout()
+plt.show()
+
+```
+
+::: {.my-box .style2}
+출발 지연은 바람세기가 30~ 35m/s일때 가장 높게 나타나고<br> 35m/s를 넘으면 적게 나타나는 걸로 보여 지연이 되다못해 결항되어 적게 나타나는 것으로 추정함.
+:::
+
+## 바람세기에 따른 출발지연과 도착지연 비교
+
+```{python}
+#| code-fold: true
+#| eval: true
+
+#막대 두개 합치기
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# x축 라벨
+labels = df_grouped['wind_bin_str']   
+val1 = df_grouped['dep_delay']
+val2 = arvgroup['arr_delay']
+
+# x축 좌표
+x = np.arange(len(labels))    
+# 막대 너비
+width = 0.4                   
+
+# 막대그래프
+bars = plt.bar(x - width/2, val1, width=width, label='dep_delay', color='thistle')
+
+bars = plt.bar(x + width/2, val2, width=width, label='arr_delay', color='powderblue')
+
+plt.axvline(x=5.5, color='blue', linewidth=2, linestyle='--')
+
+ # x축 위치에 labels 표시
+plt.xticks(x, labels,rotation = 45)        
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+```
+
+::: {.my-box .style2}
+바람 세기에 따라 출발 지연과 도착 지연을 비교했더니
+출발 지연이 도착 지연보다 더 많은 영향을 받는 것으로 나타났으나  <br>40m/s 이후엔 도착 지연이
+더 큰 영향을 받은 것으로 나타남
+:::
+
+
+## 그렇다면 바람 세기가 35m/s가 넘는다면 결항 비율이 높을까?
+
+```{python}
+#| code-fold: true
+#| eval: true
+
+# 결항 여부를 새로운 열로 만들기: dep_time이 NaN이면 결항(True), 아니면 운항(False)
+flights['cancelled'] = flights['dep_time'].isna()
+
+de = weather[['time_hour','wind_speed']]
+lay = flights[['time_hour','cancelled','dep_delay']]
+
+delay = pd.merge(de,lay,how = 'inner')
+
+bins = np.arange(0, delay['wind_speed'].max() + 5, 5)
+
+delay["wind_bin"] = pd.cut(delay['wind_speed'], bins=[0, 5, 10, 15, 20, 30, 50], 
+                             labels=["0-5", "5-10", "10-15", "15-20", "20-30", "30+"])
+
+# 바람 구간별 결항 편수
+cancelled_count = delay.groupby('wind_bin')['cancelled'].sum()
+#해당 바람 구간에 속하는 모든 항공편(결항이든 아니든)의 건수
+total_count = delay.groupby('wind_bin')['cancelled'].count()
+#각 바람 구간에서 결항 건수 / 전체 운항 건수, 100을 곱해 **결항률(%)**
+cancelled_rate = (cancelled_count / total_count) * 100
+
+cancelled_rate2 = cancelled_rate.to_frame().reset_index()
+cancelled_rate2['wind_bin_str'] = cancelled_rate2['wind_bin'].astype(str)
+
+import matplotlib.pyplot as plt
+
+bars = plt.bar(cancelled_rate2['wind_bin_str'], 
+               cancelled_rate2['cancelled'], 
+               width=width, label='arr_delay', color='palevioletred')
+
+plt.plot(cancelled_rate2['wind_bin_str'], cancelled_rate2['cancelled'], color='purple', marker='o', label='dep_delay trend')
+plt.ylabel("dep_delay(%)")
+plt.xlabel("wind_speed")
+plt.title("wind_speed vs dep_delay")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.legend()
+plt.show()
+
+```
+
+::: {.my-box .style2}
+35m/s이 넘으면 결항 비율이 계속해서 높아지며 바람 세기가 높아질수록 결항비율이 높아짐.
+:::
+
+## Part 3. 최적의 항공사 추천
+### 가장 지연이 많은(6,7,8,12)월  결항 항공사들의 지연율
+
+```{python}
+#| code-fold: true
+#| eval: true
+#| fig-width: 23
+#| fig-height: 6
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from nycflights13 import flights, planes, weather, airports, airlines
+from scipy.stats import pearsonr
+
+# 항공사별로 데이터를 조회해보니 불균형이 심하다. 그래서 상위 10개를 기준으로 뽑았고 상위 10개를 선정
+carr_list = list(flights.carrier.value_counts().head(10).index)
+carr_list
+
+# 데이터가 너무 편향되어 있으므로 각 항공사에 대해 랜덤으로 언더샘플링 진행
+sample_size =2900
+
+mm = pd.merge(flights, weather, on= 'time_hour')
+mm.columns
+
+temp = mm[mm['month_x'].isin([6,7,8,12])]
+
+#temp2.carrier.value_counts()
+temp.carrier.value_counts()
+
+#for x in carr_list:
+
+sampled_df = temp[temp['carrier'].isin(carr_list)].groupby('carrier').apply(lambda x: x.sample(sample_size, random_state=42)).reset_index(drop=True)
+
+sampled_df.carrier.value_counts()
+
+temp3 = sampled_df[sampled_df.dep_delay > 0]
+
+temp4 = temp3.groupby('carrier').dep_delay.count()
+plt.rc('font', family='Malgun Gothic')
+plt.bar(temp4.index,temp4.sort_values(ascending=False)/29, color='powderblue')
+```
+
+::: {.my-box .style2}
+* 6,7,8,12월에는 지연률이 낮은 조건에서는 'US','VX','WN'이 적합하다!
+:::  
+
+---
+
+## 2. 바람세기가 30m/s인 상황
+
+
+```{python}
+#| echo: False
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from nycflights13 import flights, planes, weather, airports, airlines
+from scipy.stats import pearsonr
+
+# 항공사별로 데이터를 조회해보니 불균형이 심하다. 그래서 상위 10개를 기준으로 뽑았고 상위 10개를 선정
+carr_list = list(flights.carrier.value_counts().head(10).index)
+carr_list
+
+
+# 데이터가 너무 편향되어 있으므로 각 항공사에 대해 랜덤으로 언더샘플링 진행
+
+sample_size =2900
+
+mm = pd.merge(flights, weather, on= 'time_hour')
+mm.columns
+
+temp = mm[mm['month_x'].isin([6,7,8,12])]
+temp.month_x.unique()
+
+#temp2.carrier.value_counts()
+temp.carrier.value_counts()
+
+#for x in carr_list:
+
+sampled_df = temp[temp['carrier'].isin(carr_list)].groupby('carrier').apply(lambda x: x.sample(sample_size, random_state=42)).reset_index(drop=True)
+
+sampled_df.carrier.value_counts()
+
+temp3 = sampled_df[sampled_df.dep_delay > 0]
+
+temp4 = temp3.groupby('carrier').dep_delay.count()
+
+
+plt.rc('font', family='Malgun Gothic')
+plt.figure(figsize=(13, 5))
+bars =plt.bar(temp4.index,temp4.sort_values(ascending=False)/29, color='powderblue')
+bars[0].set_color('blue')
+bars[4].set_color('blue')
+bars[5].set_color('blue')
+bars[6].set_color('blue')
+
+# 678 12 만 뽑아서 지연이 된 순서대로 완
+# 지연이 덜 되는 항공사(횟수) / 바람세기가 
+
+temp5 = sampled_df[sampled_df.wind_speed>=30]
+ncarr_list = list(temp5.carrier.unique())
+ncarr_list = set(ncarr_list)
+carr_list = set(carr_list)
+
+ans = carr_list - ncarr_list # set를 통해서 차집합 구함
+ans
+
+print(temp5.shape)
+
+```
+
+::: {.my-box .style7}
+* 전처리 결과 표본수 8개로 표본 신뢰도가 부족해 분석 불가
+* 30+일 때 출발하지 않는 항공사가 프로세스를 잘 갖춘 항공사라고 판단
+* 결론: 'EV','MQ','UA'가 6,7,8,12월에 지연률도 낮고 프로세스를 잘 갖춘 최적의 항공사이다!  
+:::
