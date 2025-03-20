@@ -1,0 +1,154 @@
+/* 전체 슬라이드 설정 */
+.reveal {
+    font-family: "Arial", sans-serif;
+    font-size:22px;
+    color: #f9f1f1;
+  }
+  
+  /* 배경 이미지 투명도 조정 */
+  .reveal .slide-background {
+    background-color: rgba(163, 157, 157, 0.813) !important;
+  }
+  
+  /* 제목 스타일 */
+  .reveal h1 {
+    font-size: 80px;
+    color: #ffffff;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);
+  }
+  
+  .reveal h2 {
+    font-size: 38px;
+    color: #ff9900;
+  }
+  
+  .reveal h3 {
+    font-size: 30px;
+    color: #ffffff;
+  }
+  
+  /* 리스트 스타일 */
+  .reveal ul {
+    list-style-type: square;
+  }
+  
+  /* 표 스타일 */
+  .reveal table {
+    font-size:19px;
+    width: 90%;
+    margin: auto;
+    border-collapse: collapse;
+    border: 2px solid #e0dfdb;
+    line-height: 0.8;
+    padding: 2px;    
+  }
+  
+  .reveal table th {
+    background-color: #ede9e2;
+    color: #110d0d;
+    padding: 10px;
+    text-align: center;
+  }
+  
+  .reveal table td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: center;
+  }
+  
+  /* 코드 블록 스타일 */
+  .reveal pre {
+    background-color: #dbd4d4;
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 18px;
+  }
+  
+  /* 푸터 스타일 */
+  .reveal .footer {
+    font-size:2px;
+    color: #ffffff;
+    text-align: right;
+    padding-top: 10px;
+  }
+
+  .my-box.style1 {
+    width: 70;        /* 전체 너비의 80%로 설정, 또는 '500px'처럼 고정값 사용 가능 */
+    max-width: 850px;   /* 최대 너비 제한 (선택사항) */
+    margin: 0.8em 0;;    /* 중앙 정렬: 좌우 여백 자동 */
+    border: 1px solid #ddd;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+    padding: 0.1em;
+    font-size: 1rem;
+  }
+
+  .my-box.style2 {
+    /* 상자 전체의 너비를 60%로 제한하고 중앙이 아닌 왼쪽에 정렬 */
+    width: 95%;
+    margin-left: 0;      /* 왼쪽 여백 0 */
+    margin-right: auto;   /* 오른쪽 여백 자동 -> 왼쪽 정렬 효과 */
+    padding: 0.2em;
+    border: 0.5px solid #ddd;
+    background-color: #f8f8f8;
+    border-radius: 3px;
+    font-size: 1.2rem;
+  }
+  .my-box.style3 {
+    /* 상자 전체의 너비를 60%로 제한하고 중앙이 아닌 왼쪽에 정렬 */
+    width: 95%;
+    margin-left: 0;      /* 왼쪽 여백 0 */
+    margin-right: auto;   /* 오른쪽 여백 자동 -> 왼쪽 정렬 효과 */
+    padding: 0.4em;
+    border: 0.5px solid #ddd;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+  }
+
+
+
+  .my-box.style4 {
+    width: 80%;        /* 전체 너비의 80%로 설정, 또는 '500px'처럼 고정값 사용 가능 */
+    max-width: 850px;   /* 최대 너비 제한 (선택사항) */
+    margin: 0.8em 0;;    /* 중앙 정렬: 좌우 여백 자동 */
+    border: 1px solid #ddd;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+    padding: 0.5em;
+    font-size: 1.5rem;
+  }
+
+  .my-box.style5 {
+    width: 90;        /* 전체 너비의 80%로 설정, 또는 '500px'처럼 고정값 사용 가능 */
+    max-width: 850px;   /* 최대 너비 제한 (선택사항) */
+    margin: 0.8em 0;;    /* 중앙 정렬: 좌우 여백 자동 */
+    border: 1px solid #ddd;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+    padding: 0.1em;
+    font-size: 2rem;
+  }
+
+  .my-box.style6 {
+    width: 70;        /* 전체 너비의 80%로 설정, 또는 '500px'처럼 고정값 사용 가능 */
+    max-width: 850px;   /* 최대 너비 제한 (선택사항) */
+    margin: 0.8em 0;;    /* 중앙 정렬: 좌우 여백 자동 */
+    border: 1px solid #ddd;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+    padding: 0.1em;
+    font-size: 1.2rem;
+  }
+
+  .my-box.style7 {
+    /* 상자 전체의 너비를 60%로 제한하고 중앙이 아닌 왼쪽에 정렬 */
+    width: 100%;
+    margin-left: 0;      /* 왼쪽 여백 0 */
+    margin-right: auto;   /* 오른쪽 여백 자동 -> 왼쪽 정렬 효과 */
+    padding: 0.2em;
+    border: 0.5px solid #ddd;
+    background-color: #f8f8f8;
+    border-radius: 3px;
+    font-size: 1.3rem;
+  }
